@@ -1,14 +1,18 @@
 data:
   accounts:
     persistent: true
-  response_struct:
-    default:
-      is_success: true
-      method: "nil"
-      res_body: "nil"
   token:
     persistent: true
 function:
+  get_response_struct:
+    logic:
+      $action: "elixir"
+      value: |
+        %{
+           "method" => nil,
+           "res_body" => nil,
+           "is_success" => true
+         }
   TEST_SET_DUMMY_ACCOUNTS:
     logic:
       $action: "elixir"
@@ -41,13 +45,16 @@ function:
         end
         
         # RESPONSE
-        %{
+        response = %{
           "headers" => %{
             "Content-Type" => "application/json"
           },
-          "status_code" => status_code,
-          "body" => parse_res_body
+          "status_code" => status_code
         }
+        Log.info(inspect status_code)
+        Log.info(inspect parse_res_body)
+        
+        if (parse_res_body), do: Map.put(response, "body", parse_res_body) , else: response
   set_token:
     logic:
       $action: "elixir"
@@ -76,7 +83,7 @@ instance:
                 # Log.info(v["body"])  %{"id" => "admin", "password" => "admin"}
                 accounts = v["body"]
                 result_list = get("accounts") |> Enum.filter(fn x -> x["id"] == accounts["id"] && x["password"] == accounts["password"] end)
-                response_data = get("response_struct")
+                response_data = function("get_response_struct")
                 response = if !(result_list |> Enum.empty?)  do
                   [result] = result_list
                   token = :rand.uniform(1000)
@@ -90,6 +97,7 @@ instance:
                 else
                   %{ response_data | "res_body" => %{"message" => "invalid"}, "is_success" => false}
                 end
+                Log.info(response)
                 function("respond", response)
             model:
               $ref: "/api/login"
@@ -108,11 +116,11 @@ instance:
                 id = v["body"]["id"]
                 new_accounts = Enum.reject(accounts, &match?(%{"id" => ^id}, &1))
                 
-                # token 찾아서 로그아웃 시키기
+                clear(["token", v["headers"]["authorization"]])
                 
                 set("accounts", new_accounts)
-                response =  %{"status" => "success"}
-                function("respond", response |> Poison.encode!())
+                response = %{function("get_response_struct") | "method" => v["method"]}
+                function("respond", response)
             model:
               $ref: "/api/accounts DELETE"
         none:
