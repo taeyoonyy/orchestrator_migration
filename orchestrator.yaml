@@ -132,6 +132,22 @@ instance:
                 function("respond", response)
             model:
               $ref: "/api/accounts POST"
+          - do:
+              $action: "elixir"
+              value: |
+                Log.info(v["path"]["segment"]["id"])
+                
+                id = v["path"]["segment"]["id"]
+                accounts = get("accounts")
+                [account] = accounts |> Enum.filter(fn x -> x["id"] === id end)
+                new_account = %{ account | "comment" => v["body"]["comment"]}
+                Log.info(inspect new_account)
+                
+                set("accounts",  Enum.reject(accounts, &match?(%{"id" => ^id}, &1)) ++ [new_account])
+                response = %{function("get_response_struct") | "method" => v["method"]}
+                function("respond", response)
+            model:
+              $ref: "/api/accounts/{id} PUT"
         none:
           $action: "http response"
           body:
@@ -187,6 +203,16 @@ model:
       path:
         const: "/api/accounts"
         type: "string"
+    type: "object"
+  /api/accounts/{id} PUT:
+    $parser: "json"
+    properties:
+      method:
+        const: "PUT"
+        type: "string"
+      path:
+        $parser: "path"
+        pattern: "/api/accounts/{id}"
     type: "object"
   /api/login POST:
     $parser: "json"
