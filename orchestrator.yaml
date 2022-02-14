@@ -1,0 +1,182 @@
+data:
+  accounts:
+    persistent: true
+  token:
+    persistent: true
+function:
+  TEST_SET_DUMMY_ACCOUNTS:
+    logic:
+      $action: "elixir"
+      value: |
+        accounts1 = [%{"id" => "admin", "authority" => "Admin", "password" => "1234", "comment" => "test accounts"}]
+        accounts2 = [%{"id" => "yty", "authority" => "read", "password" => "1234", "comment" => "test accounts"}]
+        accounts3 = [%{"id" => "kkk", "authority" => "read", "password" => "1234", "comment" => "test accounts"}]
+        set("accounts", accounts1 ++ accounts2 ++ accounts3)
+  respond:
+    logic:
+      $action: "elixir"
+      value: |
+        cond do
+          is_binary(v) ->
+            %{"headers" => %{"Content-Type" => "application/json"}}
+            |> Map.put("body", v)
+          is_map(v) ->
+            case v do
+              %{"headers" => headers} ->
+                h = headers |> Map.put("Content-Type", "application/json")
+                v |> Map.put("headers", h)
+              %{:headers => headers} ->
+                h = headers |> Enum.into(%{}) |> Map.put("Content-Type", "application/json")
+                v |> Map.put("headers", h)
+              _ ->
+                %{"headers" => %{"Content-Type" => "application/json"}}
+                |> Map.put("body", v |> ISON.encode() |> Poison.encode!())
+            end
+          true ->
+            %{"headers" => %{"Content-Type" => "application/json"}}
+            |> Map.put("body", v)
+        end
+  set_response_data:
+    logic:
+      $action: "elixir"
+      value: |
+        get_status_code = case  {v["method"], v["result"]["is_success"]} do
+          {"GET", true} -> 200
+          {"POST", true} -> 201
+          {"PUT", true} -> 201
+          {"DELETE", true} -> 204
+          {_ , false} -> 400
+          _ -> 405
+        end
+        
+        # RESPONSE DATA
+        %{"status_code" => v["result"]["status_code"] || get_status_code, "res_body" => v["result"]["res_body"]}
+  set_token:
+    logic:
+      $action: "elixir"
+      value: |
+        if get("token") ==  nil, do: set("token", %{})
+        set(["token", v["id"]], v["token"])
+instance:
+  web_server:
+    data:
+      port: 33346
+    event:
+      received:
+        $action: "match"
+        matches:
+          - do:
+              $action: "elixir"
+              value: |
+                accounts = (get("accounts") || []) |> Enum.map(fn x -> Map.delete(x, "password") end)
+                resp = %{"status" => "success", "result" => accounts} |> Poison.encode!()
+                function("respond", resp)
+            model:
+              $ref: "/api/accounts GET"
+          - do:
+              $action: "elixir"
+              value: |
+                # Log.info(v["body"])  %{"id" => "admin", "password" => "admin"}
+                accounts = v["body"]
+                result_list = get("accounts") |> Enum.filter(fn x -> x["id"] == accounts["id"] && x["password"] == accounts["password"] end)
+                response = if !(result_list |> Enum.empty?)  do
+                  [result] = result_list
+                  token = :rand.uniform(1000)
+                  function("set_token", %{"id"=> result["id"], "token" => token})
+                  %{"status" => "success", 
+                    "result" => 
+                      %{
+                        authority: result["authority"], 
+                        id: result["id"],
+                        token: :rand.uniform(1000)
+                      }
+                  }
+                else
+                  %{"status" => "error", "result" => "invalid"}
+                end
+                function("respond", response |> Poison.encode!())
+            model:
+              $ref: "/api/login"
+          - do:
+              $action: "elixir"
+              value: |
+                clear(["token", v["headers"]["authorization"]])
+                body = %{"status" => "success", "result" => "logged out"}|> Poison.encode!()
+                function("respond", body)
+            model:
+              $ref: "/api/logout"
+          - do:
+              $action: "elixir"
+              value: |
+                accounts = get("accounts")
+                id = v["body"]["id"]
+                new_accounts = Enum.reject(accounts, &match?(%{"id" => ^id}, &1))
+                
+                # token 찾아서 로그아웃 시키기
+                
+                set("accounts", new_accounts)
+                response =  %{"status" => "success"}
+                function("respond", response |> Poison.encode!())
+            model:
+              $ref: "/api/accounts DELETE"
+        none:
+          $action: "http response"
+          body:
+            $action: "sequence"
+            value:
+              - $action: "match"
+                $set: "dir"
+                key:
+                  - "path"
+                matches:
+                  - do: "/index.html"
+                    model:
+                      const: "/"
+                  - do:
+                      $action: "get"
+                      key: "path"
+                    model:
+                      pattern: "^/(js|css|fonts|img|/favicon.ico)"
+                      type: "string"
+                none: "/index.html"
+              - $action: "elixir"
+                value: |
+                  ui_location = (File.cwd!() |> String.split("EdgeHub/interactor") |> Enum.at(0)) <> "EdgeHub/orchestrator/dist" <> v["dir"]
+                  File.read!(ui_location)
+    use: "http server"
+model:
+  /api/accounts DELETE:
+    $parser: "json"
+    properties:
+      method:
+        const: "DELETE"
+        type: "string"
+      path:
+        const: "/api/accounts"
+        type: "string"
+    type: "object"
+  /api/accounts GET:
+    $parser: "json"
+    properties:
+      method:
+        const: "GET"
+        type: "string"
+      path:
+        const: "/api/accounts"
+        type: "string"
+    type: "object"
+  /api/login:
+    $parser: "json"
+    properties:
+      path:
+        const: "/api/login"
+        type: "string"
+    type: "object"
+  /api/logout:
+    $parser: "json"
+    properties:
+      path:
+        const: "/api/logout"
+        type: "string"
+    type: "object"
+service: {}
