@@ -1,6 +1,11 @@
 data:
   accounts:
     persistent: true
+  response_struct:
+    default:
+      is_success: true
+      method: "nil"
+      res_body: "nil"
   token:
     persistent: true
 function:
@@ -16,31 +21,17 @@ function:
     logic:
       $action: "elixir"
       value: |
-        cond do
-          is_binary(v) ->
-            %{"headers" => %{"Content-Type" => "application/json"}}
-            |> Map.put("body", v)
-          is_map(v) ->
-            case v do
-              %{"headers" => headers} ->
-                h = headers |> Map.put("Content-Type", "application/json")
-                v |> Map.put("headers", h)
-              %{:headers => headers} ->
-                h = headers |> Enum.into(%{}) |> Map.put("Content-Type", "application/json")
-                v |> Map.put("headers", h)
-              _ ->
-                %{"headers" => %{"Content-Type" => "application/json"}}
-                |> Map.put("body", v |> ISON.encode() |> Poison.encode!())
-            end
-          true ->
-            %{"headers" => %{"Content-Type" => "application/json"}}
-            |> Map.put("body", v)
-        end
-  set_response_data:
-    logic:
-      $action: "elixir"
-      value: |
-        get_status_code = case  {v["method"], v["result"]["is_success"]} do
+        # ARGUMENTS MUST BE A MAP LIKE THIS
+        # %{
+        #   "method" => "POST"
+        #   "res_body" => nil, (default nil)
+        #   "is_success" => true (default true)
+        # }
+        
+        Log.info(v)
+        res_body = v["res_body"]
+        parse_res_body = if(is_map(res_body), do: res_body |> ISON.encode() |> Poison.encode!(), else: res_body)
+        status_code = case  {v["method"], v["is_success"]} do
           {"GET", true} -> 200
           {"POST", true} -> 201
           {"PUT", true} -> 201
@@ -49,8 +40,14 @@ function:
           _ -> 405
         end
         
-        # RESPONSE DATA
-        %{"status_code" => v["result"]["status_code"] || get_status_code, "res_body" => v["result"]["res_body"]}
+        # RESPONSE
+        %{
+          "headers" => %{
+            "Content-Type" => "application/json"
+          },
+          "status_code" => status_code,
+          "body" => parse_res_body
+        }
   set_token:
     logic:
       $action: "elixir"
@@ -79,22 +76,21 @@ instance:
                 # Log.info(v["body"])  %{"id" => "admin", "password" => "admin"}
                 accounts = v["body"]
                 result_list = get("accounts") |> Enum.filter(fn x -> x["id"] == accounts["id"] && x["password"] == accounts["password"] end)
+                response_data = get("response_struct")
                 response = if !(result_list |> Enum.empty?)  do
                   [result] = result_list
                   token = :rand.uniform(1000)
                   function("set_token", %{"id"=> result["id"], "token" => token})
-                  %{"status" => "success", 
-                    "result" => 
-                      %{
-                        authority: result["authority"], 
-                        id: result["id"],
-                        token: :rand.uniform(1000)
-                      }
+                  resp_body = %{
+                      authority: result["authority"], 
+                      id: result["id"],
+                      token: :rand.uniform(1000)
                   }
+                  %{ response_data | "method" => v["method"], "res_body" => resp_body}
                 else
-                  %{"status" => "error", "result" => "invalid"}
+                  %{ response_data | "res_body" => %{"message" => "invalid"}, "is_success" => false}
                 end
-                function("respond", response |> Poison.encode!())
+                function("respond", response)
             model:
               $ref: "/api/login"
           - do:
