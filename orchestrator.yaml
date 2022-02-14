@@ -13,14 +13,6 @@ function:
            "res_body" => nil,
            "is_success" => true
          }
-  TEST_SET_DUMMY_ACCOUNTS:
-    logic:
-      $action: "elixir"
-      value: |
-        accounts1 = [%{"id" => "admin", "authority" => "Admin", "password" => "1234", "comment" => "test accounts"}]
-        accounts2 = [%{"id" => "yty", "authority" => "read", "password" => "1234", "comment" => "test accounts"}]
-        accounts3 = [%{"id" => "kkk", "authority" => "read", "password" => "1234", "comment" => "test accounts"}]
-        set("accounts", accounts1 ++ accounts2 ++ accounts3)
   respond:
     logic:
       $action: "elixir"
@@ -123,6 +115,23 @@ instance:
                 function("respond", response)
             model:
               $ref: "/api/accounts DELETE"
+          - do:
+              $action: "elixir"
+              value: |
+                accounts = get("accounts") || []
+                
+                new_account = %{
+                  "id" => v["body"]["id"],
+                  "password" => v["body"]["password"],
+                  "authority" => v["body"]["authority"],
+                  "comment" => v["body"]["comment"]
+                }
+                
+                set("accounts", accounts ++ [new_account])
+                response = %{function("get_response_struct") | "method" => v["method"]}
+                function("respond", response)
+            model:
+              $ref: "/api/accounts POST"
         none:
           $action: "http response"
           body:
@@ -164,6 +173,16 @@ model:
     properties:
       method:
         const: "GET"
+        type: "string"
+      path:
+        const: "/api/accounts"
+        type: "string"
+    type: "object"
+  /api/accounts POST:
+    $parser: "json"
+    properties:
+      method:
+        const: "POST"
         type: "string"
       path:
         const: "/api/accounts"
