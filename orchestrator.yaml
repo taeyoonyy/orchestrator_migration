@@ -91,7 +91,7 @@ instance:
                   resp_body = %{
                       authority: result["authority"], 
                       id: result["id"],
-                      token: :rand.uniform(1000)
+                      token: token
                   }
                   %{ response_data | "method" => v["method"], "res_body" => resp_body}
                 else
@@ -100,15 +100,15 @@ instance:
                 Log.info(response)
                 function("respond", response)
             model:
-              $ref: "/api/login"
+              $ref: "/api/login POST"
           - do:
               $action: "elixir"
               value: |
                 clear(["token", v["headers"]["authorization"]])
-                body = %{"status" => "success", "result" => "logged out"}|> Poison.encode!()
-                function("respond", body)
+                response = %{function("get_response_struct") | "method" => v["method"]}
+                function("respond", response)
             model:
-              $ref: "/api/logout"
+              $ref: "/api/logout GET"
           - do:
               $action: "elixir"
               value: |
@@ -169,14 +169,14 @@ model:
         const: "/api/accounts"
         type: "string"
     type: "object"
-  /api/login:
+  /api/login POST:
     $parser: "json"
     properties:
       path:
         const: "/api/login"
         type: "string"
     type: "object"
-  /api/logout:
+  /api/logout GET:
     $parser: "json"
     properties:
       path:
