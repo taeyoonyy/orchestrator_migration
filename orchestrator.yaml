@@ -1,6 +1,25 @@
 data:
   accounts:
     persistent: true
+  orchestrator_information:
+    default:
+      enginner_information:
+        engineer:
+          email: ""
+          mobile: ""
+          name: ""
+        inspector:
+          email: ""
+          mobile: ""
+          name: ""
+      license:
+        expriation_date: "UNLIMITED"
+        license_id: "ENTERPRISE"
+      system:
+        application_version: ""
+        platform_version: ""
+        system_name: "Orchestrator"
+    persistent: true
   token:
     persistent: true
 function:
