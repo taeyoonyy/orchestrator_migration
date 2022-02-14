@@ -73,8 +73,8 @@ instance:
               $action: "elixir"
               value: |
                 accounts = (get("accounts") || []) |> Enum.map(fn x -> Map.delete(x, "password") end)
-                resp = %{"status" => "success", "result" => accounts} |> Poison.encode!()
-                function("respond", resp)
+                response = %{ function("get_response_struct") | "method" => v["method"], "res_body" => accounts}
+                function("respond", response)
             model:
               $ref: "/api/accounts GET"
           - do:
