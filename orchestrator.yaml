@@ -279,6 +279,14 @@ instance:
                 function("respond", response)
             model:
               $ref: "/api/entities POST"
+          - do:
+              $action: "elixir"
+              value: |
+                entities = (get("entities") || []) |> Enum.map(fn x -> Map.delete(x, "password") end)
+                response = %{ function("get_response_struct") | "method" => v["method"], "res_body" => entities}
+                function("respond", response)
+            model:
+              $ref: "/api/entities GET"
         none:
           $action: "http response"
           body:
@@ -355,6 +363,16 @@ model:
         $parser: "path"
         pattern: "/api/connections/{target}"
     type: "object"
+  /api/entities GET:
+    $parser: "json"
+    properties:
+      method:
+        const: "GET"
+        type: "string"
+      path:
+        const: "/api/entities"
+        type: "string"
+    type: "object"
   /api/entities POST:
     $parser: "json"
     properties:
@@ -378,6 +396,9 @@ model:
   /api/logout GET:
     $parser: "json"
     properties:
+      method:
+        const: "GET"
+        type: "string"
       path:
         const: "/api/logout"
         type: "string"
