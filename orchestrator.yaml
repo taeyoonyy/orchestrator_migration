@@ -1,6 +1,8 @@
 data:
   accounts:
     persistent: true
+  entities:
+    persistent: true
   setting_information:
     default:
       engineer_information:
@@ -258,6 +260,25 @@ instance:
                 function("respond", response)
             model:
               $ref: "/api/connections/{target} POST"
+          - do:
+              $action: "elixir"
+              value: |
+                Log.info("here")
+                entities = get("entities") || []
+                new_entity = %{
+                  "category" => v["body"]["category"],
+                  "group" => v["body"]["group"],
+                  "entity" => v["body"]["entity"],
+                  "ip" => v["body"]["ip"],
+                  "port" => v["body"]["port"],
+                  "password" => v["body"]["password"]
+                }
+                
+                set("entities", entities ++ [new_entity])
+                response = %{function("get_response_struct") | "method" => v["method"]}
+                function("respond", response)
+            model:
+              $ref: "/api/entities POST"
         none:
           $action: "http response"
           body:
@@ -334,9 +355,22 @@ model:
         $parser: "path"
         pattern: "/api/connections/{target}"
     type: "object"
+  /api/entities POST:
+    $parser: "json"
+    properties:
+      method:
+        const: "POST"
+        type: "string"
+      path:
+        const: "/api/entities"
+        type: "string"
+    type: "object"
   /api/login POST:
     $parser: "json"
     properties:
+      method:
+        const: "POST"
+        type: "string"
       path:
         const: "/api/login"
         type: "string"
