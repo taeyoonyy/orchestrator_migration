@@ -3,6 +3,8 @@ data:
     persistent: true
   entities:
     persistent: true
+  groups:
+    persistent: true
   setting_information:
     default:
       engineer_information:
@@ -287,6 +289,35 @@ instance:
                 function("respond", response)
             model:
               $ref: "/api/entities GET"
+          - do:
+              $action: "elixir"
+              value: |
+                # {
+                # 		"category": "interactor",
+                #     "target": "entity",
+                #     "group": "group1",
+                #     "entity": "entity1-1"
+                # }
+                
+                
+                entities = get("entities")
+                category = v["body"]["category"]
+                group = v["body"]["group"]
+                entity = v["body"]["entity"]
+                Log.info("YEQWE")
+                Log.info(entity)
+                
+                new_entities = if entity do
+                  Enum.reject(entities, &match?(%{"category" => ^category, "group" => ^group, "entity" => ^entity}, &1))
+                else
+                  Enum.reject(entities, &match?(%{"category" => ^category, "group" => ^group}, &1))
+                end
+                Log.info(new_entities)
+                set("entities", new_entities)
+                response = %{function("get_response_struct") | "method" => v["method"]}
+                function("respond", response)
+            model:
+              $ref: "/api/entities DELETE"
         none:
           $action: "http response"
           body:
@@ -362,6 +393,16 @@ model:
       path:
         $parser: "path"
         pattern: "/api/connections/{target}"
+    type: "object"
+  /api/entities DELETE:
+    $parser: "json"
+    properties:
+      method:
+        const: "DELETE"
+        type: "string"
+      path:
+        const: "/api/entities"
+        type: "string"
     type: "object"
   /api/entities GET:
     $parser: "json"
