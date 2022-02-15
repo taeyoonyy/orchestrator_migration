@@ -32,6 +32,40 @@ function:
            "res_body" => nil,
            "is_success" => true
          }
+  get_url:
+    logic:
+      $action: "elixir"
+      value: |
+        case v do
+          :INTERACTOR_CONNECTION_CHECK -> "/api/device/test"
+          :INSIGHT_CONNECTION_CHECK ->  "/api/config/dashboard_test"
+          _ -> "NO URL"
+        end
+  http_request:
+    logic:
+      $action: "elixir"
+      value: |
+        Log.info(v)
+        method = if v[:body], do: "POST", else: "GET"
+        req_data = %{
+          "headers" => %{"Content-Type" => "application/json"},
+          "url" => v[:url],
+          "method" => method,
+          "body" => v[:body] |> ISON.encode() |> Poison.encode!()
+        }
+        
+        Log.info(inspect req_data)
+        
+        case Service.Http.request(req_data) do
+          {:ok, res_data} ->
+            Log.info(res_data)
+            res_data |> Map.from_struct() |> Map.get(:body) |> Poison.decode!
+          {:error, res_data} ->
+            reason = res_data |> Map.from_struct() |> Map.get(:reason)
+            Logger.info(reason |> inspect)
+            reason
+          _ -> false
+        end
   respond:
     logic:
       $action: "elixir"
@@ -203,6 +237,27 @@ instance:
                 function("respond", response)
             model:
               $ref: "/api/setting/system-information POST"
+          - do:
+              $action: "elixir"
+              value: |
+                # ARGUMENTS
+                target_path = if v["path"]["segment"]["target"] === "interactor", do: function("get_url", :INTERACTOR_CONNECTION_CHECK), else: function("get_url", :INSIGHT_CONNECTION_CHECK)
+                port = if is_number(v["body"]["port"]), do: to_string(v["body"]["port"]), else: v["body"]["port"]
+                url = "http://" <> v["body"]["ip"] <> ":" <> port <> target_path
+                
+                # REQUEST TO API SERVER
+                result = function("http_request", %{"url": url, "body": %{"password" => v["body"]["password"]}})
+                
+                # RESPONSE
+                response_data = function("get_response_struct") 
+                response = if result["result"] === "success" do
+                  %{ response_data | "method" => v["method"], "res_body" => %{"message" => "connection check success"}}
+                else
+                  %{ response_data | "res_body" => %{"message" => "connection check fail"}, "is_success" => false}
+                end
+                function("respond", response)
+            model:
+              $ref: "/api/connections/{target} POST"
         none:
           $action: "http response"
           body:
@@ -268,6 +323,16 @@ model:
       path:
         $parser: "path"
         pattern: "/api/accounts/{id}"
+    type: "object"
+  /api/connections/{target} POST:
+    $parser: "json"
+    properties:
+      method:
+        const: "POST"
+        type: "string"
+      path:
+        $parser: "path"
+        pattern: "/api/connections/{target}"
     type: "object"
   /api/login POST:
     $parser: "json"
