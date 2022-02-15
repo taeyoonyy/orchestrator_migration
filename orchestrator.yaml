@@ -265,7 +265,6 @@ instance:
           - do:
               $action: "elixir"
               value: |
-                Log.info("here")
                 entities = get("entities") || []
                 new_entity = %{
                   "category" => v["body"]["category"],
@@ -318,6 +317,25 @@ instance:
                 function("respond", response)
             model:
               $ref: "/api/entities DELETE"
+          - do:
+              $action: "elixir"
+              value: |
+                group = v["parameters"]["group"]
+                entity = v["parameters"]["entity"]
+                
+                group_info = %{
+                  "entity" => entity,
+                  "group" => group,
+                  "group_information" => v["body"]
+                }
+                
+                groups = get("groups") || []
+                
+                set("groups",  Enum.reject(groups, &match?(%{"group" => ^group, "entity" => ^entity}, &1)) ++ [group_info])
+                response = %{function("get_response_struct") | "method" => v["method"]}
+                function("respond", response)
+            model:
+              $ref: "/api/groups POST"
         none:
           $action: "http response"
           body:
@@ -422,6 +440,16 @@ model:
         type: "string"
       path:
         const: "/api/entities"
+        type: "string"
+    type: "object"
+  /api/groups POST:
+    $parser: "json"
+    properties:
+      method:
+        const: "POST"
+        type: "string"
+      path:
+        const: "/api/groups"
         type: "string"
     type: "object"
   /api/login POST:
