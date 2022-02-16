@@ -27,6 +27,20 @@ data:
   token:
     persistent: true
 function:
+  get_api_server_path:
+    logic:
+      $action: "elixir"
+      value: |
+        case v do
+          :INTERACTOR_CONNECTION_CHECK -> "/api/device/test"
+          :INSIGHT_CONNECTION_CHECK ->  "/api/config/dashboard_test"
+          :INTERACTOR_INFORMATION -> "/api/device/detail"
+          :INTERACTOR_CPU_AVERAGE -> "/api/device/cpu_average"
+          :INTERACTOR_CPU_CORE -> "/api/device/core_usage"
+          :INTERACTOR_PROCESS -> "/api/device/process_list"
+          :INTERACTOR_RESOURCE -> "/api/device/system_resources"
+          _ -> "NO URL"
+        end
   get_response_struct:
     logic:
       $action: "elixir"
@@ -36,16 +50,6 @@ function:
            "res_body" => nil,
            "is_success" => true
          }
-  get_url:
-    logic:
-      $action: "elixir"
-      value: |
-        case v do
-          :INTERACTOR_CONNECTION_CHECK -> "/api/device/test"
-          :INSIGHT_CONNECTION_CHECK ->  "/api/config/dashboard_test"
-          :INTERACTOR_INFORMATION -> "/api/device/detail"
-          _ -> "NO URL"
-        end
   http_request:
     logic:
       $action: "elixir"
@@ -255,7 +259,7 @@ instance:
               $action: "elixir"
               value: |
                 # ARGUMENTS
-                target_path = if v["path"]["segment"]["target"] === "interactor", do: function("get_url", :INTERACTOR_CONNECTION_CHECK), else: function("get_url", :INSIGHT_CONNECTION_CHECK)
+                target_path = if v["path"]["segment"]["target"] === "interactor", do: function("get_api_server_path", :INTERACTOR_CONNECTION_CHECK), else: function("get_api_server_path", :INSIGHT_CONNECTION_CHECK)
                 port = if is_number(v["body"]["port"]), do: to_string(v["body"]["port"]), else: v["body"]["port"]
                 url = "http://" <> v["body"]["ip"] <> ":" <> port <> target_path
                 
@@ -368,7 +372,7 @@ instance:
                 group = v["parameters"]["group"]
                 entity = v["parameters"]["entity"]
                 {ip, port, password} = function("return_entity_connection_info", {category, group, entity})
-                path = function("get_url", :INTERACTOR_INFORMATION)
+                path = function("get_api_server_path", :INTERACTOR_INFORMATION)
                 url = "http://" <> ip <> ":" <> port <> path
                 
                 # REQUEST TO API SERVER
@@ -382,9 +386,39 @@ instance:
                   %{ response_data | "is_success" => false}
                 end
                 function("respond", response)
-
             model:
               $ref: "/api/interactor/info GET"
+          - do:
+              $action: "elixir"
+              value: |
+                category = "interactor"
+                group = v["parameters"]["group"]
+                entity = v["parameters"]["entity"]
+                {ip, port, password} = function("return_entity_connection_info", {category, group, entity})
+                
+                target = case v["path"]["segment"]["target"] do
+                  "cpu-average" -> :INTERACTOR_CPU_AVERAGE
+                  "cpu-core" -> :INTERACTOR_CPU_CORE
+                  "process" -> :INTERACTOR_PROCESS
+                  "resocures" -> :INTERACTOR_RESOURCE
+                end
+                
+                path = function("get_api_server_path", target)
+                url = "http://" <> ip <> ":" <> port <> path
+                
+                # REQUEST TO API SERVER
+                result = function("http_request", %{"url": url, "body": %{"password" => password}})
+                                
+                # RESPONSE
+                response_data = function("get_response_struct") 
+                response = if result["result"] === "success" do
+                  %{ response_data | "method" => v["method"], "res_body" => result["data"]}
+                else
+                  %{ response_data | "is_success" => false}
+                end
+                function("respond", response)
+            model:
+              $ref: "/api/interactor/system/{target} POST"
         none:
           $action: "http response"
           body:
@@ -520,6 +554,16 @@ model:
       path:
         const: "/api/interactor/info"
         type: "string"
+    type: "object"
+  /api/interactor/system/{target} POST:
+    $parser: "json"
+    properties:
+      method:
+        const: "POST"
+        type: "string"
+      path:
+        $parser: "path"
+        pattern: "/api/interactor/system/{target}"
     type: "object"
   /api/login POST:
     $parser: "json"
