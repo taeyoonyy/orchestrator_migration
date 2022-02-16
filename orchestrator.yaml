@@ -428,14 +428,14 @@ instance:
                 category = "interactor"
                 group = v["parameters"]["group"]
                 entity = v["parameters"]["entity"]
-                target = v["path"]["segment"]["target"]
+                file_path = v["parameters"]["file-path"]
                 path = function("get_api_server_path", :INTERACTOR_FILE_LIST)
                 {ip, port, password} = function("return_entity_connection_info", {category, group, entity})
                 url = "http://" <> ip <> ":" <> port <> path
-                folder_path = if target === "external", do: "edgehub-i/external_file", else: "logs"
+                Log.info(file_path)
                 
                 # REQUEST TO API SERVER
-                result = function("http_request", %{"url": url, "body": %{"password" => password, "path" => folder_path}})
+                result = function("http_request", %{"url": url, "body": %{"password" => password, "path" => file_path}})
                 
                 # RESPONSE
                 response_data = function("get_response_struct") 
@@ -446,7 +446,7 @@ instance:
                 end
                 function("respond", response)
             model:
-              $ref: "/api/interactor/files/{target} GET"
+              $ref: "/api/interactor/files GET"
         none:
           $action: "http response"
           body:
@@ -573,7 +573,7 @@ model:
         const: "/api/groups"
         type: "string"
     type: "object"
-  /api/interactor/files/{target} GET:
+  /api/interactor/files GET:
     $parser: "json"
     properties:
       method:
@@ -581,7 +581,7 @@ model:
         type: "string"
       path:
         $parser: "path"
-        pattern: "/api/interactor/files/{target}"
+        pattern: "/api/interactor/files"
     type: "object"
   /api/interactor/info GET:
     $parser: "json"
