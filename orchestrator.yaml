@@ -39,6 +39,9 @@ function:
           :INTERACTOR_CPU_CORE -> "/api/device/core_usage"
           :INTERACTOR_PROCESS -> "/api/device/process_list"
           :INTERACTOR_RESOURCE -> "/api/device/system_resources"
+          :INTERACTOR_FILE_DOWNLOAD -> "/api/file/download"
+          :INTERACTOR_FILE_LIST -> "/api/file/list"
+          :INTERACTOR_CONFIGURATION_EXPORT -> "/api/config/get"
           _ -> "NO URL"
         end
   get_response_struct:
@@ -419,6 +422,31 @@ instance:
                 function("respond", response)
             model:
               $ref: "/api/interactor/system/{target} POST"
+          - do:
+              $action: "elixir"
+              value: |
+                category = "interactor"
+                group = v["parameters"]["group"]
+                entity = v["parameters"]["entity"]
+                target = v["path"]["segment"]["target"]
+                path = function("get_api_server_path", :INTERACTOR_FILE_LIST)
+                {ip, port, password} = function("return_entity_connection_info", {category, group, entity})
+                url = "http://" <> ip <> ":" <> port <> path
+                folder_path = if target === "external", do: "edgehub-i/external_file", else: "logs"
+                
+                # REQUEST TO API SERVER
+                result = function("http_request", %{"url": url, "body": %{"password" => password, "path" => folder_path}})
+                
+                # RESPONSE
+                response_data = function("get_response_struct") 
+                response = if result["result"] === "success" do
+                  %{ response_data | "method" => v["method"], "res_body" => result["data"]}
+                else
+                  %{ response_data | "is_success" => false}
+                end
+                function("respond", response)
+            model:
+              $ref: "/api/interactor/files/{target} POST"
         none:
           $action: "http response"
           body:
@@ -544,6 +572,16 @@ model:
       path:
         const: "/api/groups"
         type: "string"
+    type: "object"
+  /api/interactor/files/{target} POST:
+    $parser: "json"
+    properties:
+      method:
+        const: "POST"
+        type: "string"
+      path:
+        $parser: "path"
+        pattern: "/api/interactor/files/{target}"
     type: "object"
   /api/interactor/info GET:
     $parser: "json"
