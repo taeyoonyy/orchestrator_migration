@@ -421,7 +421,7 @@ instance:
                 end
                 function("respond", response)
             model:
-              $ref: "/api/interactor/system/{target} POST"
+              $ref: "/api/interactor/system/{target} GET"
           - do:
               $action: "elixir"
               value: |
@@ -446,7 +446,7 @@ instance:
                 end
                 function("respond", response)
             model:
-              $ref: "/api/interactor/files/{target} POST"
+              $ref: "/api/interactor/files/{target} GET"
         none:
           $action: "http response"
           body:
@@ -573,11 +573,11 @@ model:
         const: "/api/groups"
         type: "string"
     type: "object"
-  /api/interactor/files/{target} POST:
+  /api/interactor/files/{target} GET:
     $parser: "json"
     properties:
       method:
-        const: "POST"
+        const: "GET"
         type: "string"
       path:
         $parser: "path"
@@ -593,11 +593,11 @@ model:
         const: "/api/interactor/info"
         type: "string"
     type: "object"
-  /api/interactor/system/{target} POST:
+  /api/interactor/system/{target} GET:
     $parser: "json"
     properties:
       method:
-        const: "POST"
+        const: "GET"
         type: "string"
       path:
         $parser: "path"
