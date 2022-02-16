@@ -43,6 +43,7 @@ function:
         case v do
           :INTERACTOR_CONNECTION_CHECK -> "/api/device/test"
           :INSIGHT_CONNECTION_CHECK ->  "/api/config/dashboard_test"
+          :INTERACTOR_INFORMATION -> "/api/device/detail"
           _ -> "NO URL"
         end
   http_request:
@@ -104,6 +105,15 @@ function:
         Log.info(inspect parse_res_body)
         
         if (parse_res_body), do: Map.put(response, "body", parse_res_body) , else: response
+  return_entity_connection_info:
+    logic:
+      $action: "elixir"
+      value: |
+        {category, group, entity} = v
+        result = get("entities") |> Enum.filter(fn x -> x["category"] == category && x["group"] == group && x["entity"] == entity end) |> Enum.at(0)
+        {result["ip"], result["port"], result["password"]}
+        
+        # function("return_entity_connection_info", {"interactor", "ytyg", "ytye"})
   set_token:
     logic:
       $action: "elixir"
@@ -350,6 +360,31 @@ instance:
                 function("respond", response)
             model:
               $ref: "/api/groups GET"
+          - do:
+              $action: "elixir"
+              value: |
+                # PREPARE DATA FOR HTTP REQUEST
+                category = "interactor"
+                group = v["parameters"]["group"]
+                entity = v["parameters"]["entity"]
+                {ip, port, password} = function("return_entity_connection_info", {category, group, entity})
+                path = function("get_url", :INTERACTOR_INFORMATION)
+                url = "http://" <> ip <> ":" <> port <> path
+                
+                # REQUEST TO API SERVER
+                result = function("http_request", %{"url": url, "body": %{"password" => password}})
+                
+                # RESPONSE
+                response_data = function("get_response_struct") 
+                response = if result["result"] === "success" do
+                  %{ response_data | "method" => v["method"], "res_body" => result["data"]}
+                else
+                  %{ response_data | "is_success" => false}
+                end
+                function("respond", response)
+
+            model:
+              $ref: "/api/interactor/info GET"
         none:
           $action: "http response"
           body:
@@ -474,6 +509,16 @@ model:
         type: "string"
       path:
         const: "/api/groups"
+        type: "string"
+    type: "object"
+  /api/interactor/info GET:
+    $parser: "json"
+    properties:
+      method:
+        const: "GET"
+        type: "string"
+      path:
+        const: "/api/interactor/info"
         type: "string"
     type: "object"
   /api/login POST:
