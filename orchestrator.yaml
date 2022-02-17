@@ -59,8 +59,9 @@ function:
       value: |
         Log.info(v)
         method = if v[:body], do: "POST", else: "GET"
+        headers = if v[:headers], do: v[:headers], else: %{"Content-Type" => "application/json"}
         req_data = %{
-          "headers" => %{"Content-Type" => "application/json"},
+          "headers" => headers,
           "url" => v[:url],
           "method" => method,
           "body" => v[:body] |> ISON.encode() |> Poison.encode!()
@@ -70,8 +71,12 @@ function:
         
         case Service.Http.request(req_data) do
           {:ok, res_data} ->
-            Log.info(res_data)
-            res_data |> Map.from_struct() |> Map.get(:body) |> Poison.decode!
+            {result, data} = res_data |> Map.from_struct() |> Map.get(:body) |> Poison.decode
+            if result === :ok do
+              data
+            else
+              res_data |> Map.from_struct() |> Map.get(:body)
+            end
           {:error, res_data} ->
             reason = res_data |> Map.from_struct() |> Map.get(:reason)
             Logger.info(reason |> inspect)
@@ -447,6 +452,26 @@ instance:
                 function("respond", response)
             model:
               $ref: "/api/interactor/files GET"
+          - do:
+              $action: "elixir"
+              value: |
+                category = "interactor"
+                group = v["parameters"]["group"]
+                entity = v["parameters"]["entity"]
+                file_path = v["parameters"]["file-path"]
+                path = function("get_api_server_path", :INTERACTOR_FILE_DOWNLOAD)
+                {ip, port, password} = function("return_entity_connection_info", {category, group, entity})
+                url = "http://" <> ip <> ":" <> port <> path
+                
+                # REQUEST TO API SERVER
+                result = function("http_request", %{"url": url, "body": %{"password" => password, "path" => file_path}, "headers": %{"Accept" => "application/octet-stream"}})
+                
+                # RESPONSE
+                response_data = function("get_response_struct")
+                response = %{ response_data | "method" => v["method"], "res_body" => result}
+                function("respond", response)
+            model:
+              $ref: "/api/interactor/files/content GET"
         none:
           $action: "http response"
           body:
@@ -582,6 +607,16 @@ model:
       path:
         $parser: "path"
         pattern: "/api/interactor/files"
+    type: "object"
+  /api/interactor/files/content GET:
+    $parser: "json"
+    properties:
+      method:
+        const: "GET"
+        type: "string"
+      path:
+        const: "/api/interactor/files/content"
+        type: "string"
     type: "object"
   /api/interactor/info GET:
     $parser: "json"
