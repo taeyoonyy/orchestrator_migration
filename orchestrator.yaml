@@ -42,6 +42,7 @@ function:
           :INTERACTOR_FILE_DOWNLOAD -> "/api/file/download"
           :INTERACTOR_FILE_LIST -> "/api/file/list"
           :INTERACTOR_PROJECT_EXPORT -> "/api/config/get"
+          :INTERACTOR_EVENT_HISTORY -> "/api/event/history"
           _ -> "NO URL"
         end
   get_response_struct:
@@ -496,6 +497,36 @@ instance:
                 function("respond", response)
             model:
               $ref: "/api/interactor/files/project GET"
+          - do:
+              $action: "elixir"
+              value: |
+                category = "interactor"
+                group = v["parameters"]["group"]
+                entity = v["parameters"]["entity"]
+                
+                index = v["body"]["index"]
+                length = v["body"]["length"]
+                
+                
+                path = function("get_api_server_path", :INTERACTOR_EVENT_HISTORY)
+                {ip, port, password} = function("return_entity_connection_info", {category, group, entity})
+                url = "http://" <> ip <> ":" <> port <> path
+                
+                Log.info(url)
+                # REQUEST TO API SERVER
+                result = function("http_request", %{"url": url, "body": %{"password" => password, "index" => index, "length" => length}})
+                Log.info(result)
+                
+                # RESPONSE
+                response_data = function("get_response_struct")
+                response = if result["result"] === "success" do
+                 %{ response_data | "method" => v["method"], "res_body" => result["data"] |> Enum.at(1) |> Map.get("rows")}
+                else
+                  %{ response_data | "is_success" => false}
+                end
+                function("respond", response)
+            model:
+              $ref: "/api/interactor/event/history POST"
         none:
           $action: "http response"
           body:
@@ -620,6 +651,16 @@ model:
         type: "string"
       path:
         const: "/api/groups"
+        type: "string"
+    type: "object"
+  /api/interactor/event/history POST:
+    $parser: "json"
+    properties:
+      method:
+        const: "POST"
+        type: "string"
+      path:
+        const: "/api/interactor/event/history"
         type: "string"
     type: "object"
   /api/interactor/files GET:
