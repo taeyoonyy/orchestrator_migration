@@ -41,7 +41,7 @@ function:
           :INTERACTOR_RESOURCE -> "/api/device/system_resources"
           :INTERACTOR_FILE_DOWNLOAD -> "/api/file/download"
           :INTERACTOR_FILE_LIST -> "/api/file/list"
-          :INTERACTOR_CONFIGURATION_EXPORT -> "/api/config/get"
+          :INTERACTOR_PROJECT_EXPORT -> "/api/config/get"
           _ -> "NO URL"
         end
   get_response_struct:
@@ -472,6 +472,30 @@ instance:
                 function("respond", response)
             model:
               $ref: "/api/interactor/files/content GET"
+          - do:
+              $action: "elixir"
+              value: |
+                category = "interactor"
+                group = v["parameters"]["group"]
+                entity = v["parameters"]["entity"]
+                
+                path = function("get_api_server_path", :INTERACTOR_PROJECT_EXPORT)
+                {ip, port, password} = function("return_entity_connection_info", {category, group, entity})
+                url = "http://" <> ip <> ":" <> port <> path
+                
+                # REQUEST TO API SERVER
+                result = function("http_request", %{"url": url, "body": %{"password" => password}, "headers": %{"Accept" => "application/octet-stream"}})
+                
+                # RESPONSE
+                response_data = function("get_response_struct")
+                response = if result["result"] === "success" do
+                 %{ response_data | "method" => v["method"], "res_body" => result["data"]}
+                else
+                  %{ response_data | "is_success" => false}
+                end
+                function("respond", response)
+            model:
+              $ref: "/api/interactor/files/project GET"
         none:
           $action: "http response"
           body:
@@ -616,6 +640,16 @@ model:
         type: "string"
       path:
         const: "/api/interactor/files/content"
+        type: "string"
+    type: "object"
+  /api/interactor/files/project GET:
+    $parser: "json"
+    properties:
+      method:
+        const: "GET"
+        type: "string"
+      path:
+        const: "/api/interactor/files/project"
         type: "string"
     type: "object"
   /api/interactor/info GET:
