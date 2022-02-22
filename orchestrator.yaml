@@ -55,7 +55,8 @@ function:
         %{
            "method" => nil,
            "res_body" => nil,
-           "is_success" => true
+           "is_success" => true,
+           "headers" => nil
          }
   http_request:
     logic:
@@ -110,11 +111,15 @@ function:
           _ -> 405
         end
         
+        headers = if v["headers"] do
+          v["headers"]
+        else
+          %{"Content-Type" => "application/json"}
+        end
+        
         # RESPONSE
         response = %{
-          "headers" => %{
-            "Content-Type" => "application/json"
-          },
+          "headers" => headers,
           "status_code" => status_code
         }
         Log.info(inspect status_code)
@@ -618,6 +623,27 @@ instance:
                 function("respond", response)
             model:
               $ref: "/api/{application}/update/{file-category} DELETE"
+          - do:
+              $action: "elixir"
+              value: |
+                application = v["path"]["segment"]["application"]
+                file_category = v["path"]["segment"]["file-category"]
+                file_name = v["parameters"]["file-name"]
+                
+                Log.info("here")
+                # READ FILE
+                file_path = "orchestrator/files/" <> application <> "/" <> file_category <> "/" <> file_name
+                {_, content} = File.read(file_path)
+                
+                # # RESPONSE
+                headers = %{
+                  "Content-type" => "application/octet-stream",
+                  "Content-Transfer-Encoding" => "binary"
+                }
+                response = %{function("get_response_struct") | "method" => v["method"], "res_body" => content, "headers" => headers}
+                function("respond", response)
+            model:
+              $ref: "/api/{application}/update/{file-category} GET"
         none:
           $action: "http response"
           body:
@@ -869,6 +895,16 @@ model:
     properties:
       method:
         const: "DELETE"
+        type: "string"
+      path:
+        $parser: "path"
+        pattern: "/api/{application}/update/{file-category}"
+    type: "object"
+  /api/{application}/update/{file-category} GET:
+    $parser: "json"
+    properties:
+      method:
+        const: "GET"
         type: "string"
       path:
         $parser: "path"
