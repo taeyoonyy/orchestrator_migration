@@ -595,6 +595,29 @@ instance:
                 function("respond", response)
             model:
               $ref: "/api/{application}/update/{file-category}/list GET"
+          - do:
+              $action: "elixir"
+              value: |
+                application = v["path"]["segment"]["application"]
+                file_category = v["path"]["segment"]["file-category"]
+                file_name = v["parameters"]["file-name"]
+                
+                Log.info(file_name)
+                
+                # DELETE FILE INFO 
+                original_list = Interactor.Object.get_in(get("files"), [application, file_category]) || []
+                changed_list = original_list |> Enum.filter(fn x -> x["file_name"] !== file_name end)
+                set("files",Interactor.Object.put_in(get("files"), [application, file_category],  changed_list))
+                
+                # DELETE FILE
+                file_path = "orchestrator/files/" <> application <> "/" <> file_category <> "/" <> file_name
+                File.rm(file_path)
+                
+                # RESPONSE
+                response = %{function("get_response_struct") | "method" => v["method"]}
+                function("respond", response)
+            model:
+              $ref: "/api/{application}/update/{file-category} DELETE"
         none:
           $action: "http response"
           body:
@@ -840,6 +863,16 @@ model:
       path:
         const: "/api/setting/system-information"
         type: "string"
+    type: "object"
+  /api/{application}/update/{file-category} DELETE:
+    $parser: "json"
+    properties:
+      method:
+        const: "DELETE"
+        type: "string"
+      path:
+        $parser: "path"
+        pattern: "/api/{application}/update/{file-category}"
     type: "object"
   /api/{application}/update/{file-category} POST:
     $parser: "json"
