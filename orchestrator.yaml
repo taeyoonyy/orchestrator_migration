@@ -581,6 +581,20 @@ instance:
                 function("respond", response)
             model:
               $ref: "/api/{software}/update/{file-category} POST"
+          - do:
+              $action: "elixir"
+              value: |
+                software = v["path"]["segment"]["software"]
+                file_category = v["path"]["segment"]["file-category"]
+                
+                # GET FILE INFO 
+                file_info = Interactor.Object.get_in(get("files"), [software, file_category]) || []
+                
+                # RESPONSE
+                response = %{function("get_response_struct") | "method" => v["method"], "res_body" => file_info}
+                function("respond", response)
+            model:
+              $ref: "/api/{software}/update/{file-category}/list GET"
         none:
           $action: "http response"
           body:
@@ -836,5 +850,15 @@ model:
       path:
         $parser: "path"
         pattern: "/api/{software}/update/{file-category}"
+    type: "object"
+  /api/{software}/update/{file-category}/list GET:
+    $parser: "json"
+    properties:
+      method:
+        const: "GET"
+        type: "string"
+      path:
+        $parser: "path"
+        pattern: "/api/{software}/update/{file-category}/list"
     type: "object"
 service: {}
