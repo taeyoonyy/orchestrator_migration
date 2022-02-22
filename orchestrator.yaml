@@ -644,6 +644,18 @@ instance:
                 function("respond", response)
             model:
               $ref: "/api/{application}/update/{file-category} GET"
+          - do:
+              $action: "elixir"
+              value: |
+                application = v["path"]["segment"]["application"]
+                file_category = v["path"]["segment"]["file-category"]
+                
+                group = v["body"]["group"]
+                entity = v["body"]["entity"]
+                
+                # Logic to be added
+            model:
+              $ref: "/api/{application}/update/{file-category}/execute POST"
         none:
           $action: "http response"
           body:
@@ -919,6 +931,16 @@ model:
       path:
         $parser: "path"
         pattern: "/api/{application}/update/{file-category}"
+    type: "object"
+  /api/{application}/update/{file-category}/execute POST:
+    $parser: "json"
+    properties:
+      method:
+        const: "GET"
+        type: "string"
+      path:
+        $parser: "path"
+        pattern: "/api/{application}/update/{file-category}/execute"
     type: "object"
   /api/{application}/update/{file-category}/list GET:
     $parser: "json"
