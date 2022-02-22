@@ -3,6 +3,8 @@ data:
     persistent: true
   entities:
     persistent: true
+  files:
+    persistent: true
   groups:
     persistent: true
   setting_information:
@@ -551,6 +553,34 @@ instance:
                 function("respond", response)
             model:
               $ref: "/api/interactor/event/last-id GET"
+          - do:
+              $action: "elixir"
+              value: |
+                
+                software = v["path"]["segment"]["software"]
+                file_category = v["path"]["segment"]["file-category"]
+                
+                file_name = v["body"]["fileName"]
+                content = v["body"]["content"]
+                upload_time = v["body"]["uploadTime"]
+                comment = v["body"]["comment"]
+                
+                # SET FILE INFO AT FILES object
+                file_info =%{"file_name" => file_name, "upload_tile" => upload_time, "comment" => comment}
+                original = Interactor.Object.get_in(get("files"), [software, file_category]) || []
+                set("files",Interactor.Object.put_in(get("files"), [software, file_category],  original ++ [file_info]))
+                
+                # UPLOAD FILD TO FOLDER
+                file_path = "orchestrator/files/" <> software <> "/" <> file_category
+                Log.info(file_path)
+                File.mkdir_p(file_path |> Path.expand())
+                File.write(file_path <> "/" <> file_name, content)
+                
+                # RESPONSE
+                response = %{function("get_response_struct") | "method" => v["method"]}
+                function("respond", response)
+            model:
+              $ref: "/api/{software}/update/{file-category} POST"
         none:
           $action: "http response"
           body:
@@ -796,5 +826,15 @@ model:
       path:
         const: "/api/setting/system-information"
         type: "string"
+    type: "object"
+  /api/{software}/update/{file-category} POST:
+    $parser: "json"
+    properties:
+      method:
+        const: "POST"
+        type: "string"
+      path:
+        $parser: "path"
+        pattern: "/api/{software}/update/{file-category}"
     type: "object"
 service: {}
