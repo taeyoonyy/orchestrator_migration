@@ -649,9 +649,12 @@ instance:
               value: |
                 application = v["path"]["segment"]["application"]
                 file_category = v["path"]["segment"]["file-category"]
+                file_name = v["parameters"]["file-name"]
                 
                 group = v["body"]["group"]
                 entity = v["body"]["entity"]
+                
+                Log.info("Logic to be added - " <> file_name <> ", " <> group <> ", " <> entity)
                 
                 # Logic to be added
             model:
@@ -936,7 +939,7 @@ model:
     $parser: "json"
     properties:
       method:
-        const: "GET"
+        const: "POST"
         type: "string"
       path:
         $parser: "path"
