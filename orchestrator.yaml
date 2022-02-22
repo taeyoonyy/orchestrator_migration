@@ -557,7 +557,7 @@ instance:
               $action: "elixir"
               value: |
                 
-                software = v["path"]["segment"]["software"]
+                application = v["path"]["segment"]["application"]
                 file_category = v["path"]["segment"]["file-category"]
                 
                 file_name = v["body"]["fileName"]
@@ -567,11 +567,11 @@ instance:
                 
                 # SET FILE INFO AT FILES object
                 file_info =%{"file_name" => file_name, "upload_tile" => upload_time, "comment" => comment}
-                original = Interactor.Object.get_in(get("files"), [software, file_category]) || []
-                set("files",Interactor.Object.put_in(get("files"), [software, file_category],  original ++ [file_info]))
+                original = Interactor.Object.get_in(get("files"), [application, file_category]) || []
+                set("files",Interactor.Object.put_in(get("files"), [application, file_category],  original ++ [file_info]))
                 
                 # UPLOAD FILD TO FOLDER
-                file_path = "orchestrator/files/" <> software <> "/" <> file_category
+                file_path = "orchestrator/files/" <> application <> "/" <> file_category
                 Log.info(file_path)
                 File.mkdir_p(file_path |> Path.expand())
                 File.write(file_path <> "/" <> file_name, content)
@@ -580,21 +580,21 @@ instance:
                 response = %{function("get_response_struct") | "method" => v["method"]}
                 function("respond", response)
             model:
-              $ref: "/api/{software}/update/{file-category} POST"
+              $ref: "/api/{application}/update/{file-category} POST"
           - do:
               $action: "elixir"
               value: |
-                software = v["path"]["segment"]["software"]
+                application = v["path"]["segment"]["application"]
                 file_category = v["path"]["segment"]["file-category"]
                 
                 # GET FILE INFO 
-                file_info = Interactor.Object.get_in(get("files"), [software, file_category]) || []
+                file_info = Interactor.Object.get_in(get("files"), [application, file_category]) || []
                 
                 # RESPONSE
                 response = %{function("get_response_struct") | "method" => v["method"], "res_body" => file_info}
                 function("respond", response)
             model:
-              $ref: "/api/{software}/update/{file-category}/list GET"
+              $ref: "/api/{application}/update/{file-category}/list GET"
         none:
           $action: "http response"
           body:
@@ -841,7 +841,7 @@ model:
         const: "/api/setting/system-information"
         type: "string"
     type: "object"
-  /api/{software}/update/{file-category} POST:
+  /api/{application}/update/{file-category} POST:
     $parser: "json"
     properties:
       method:
@@ -849,9 +849,9 @@ model:
         type: "string"
       path:
         $parser: "path"
-        pattern: "/api/{software}/update/{file-category}"
+        pattern: "/api/{application}/update/{file-category}"
     type: "object"
-  /api/{software}/update/{file-category}/list GET:
+  /api/{application}/update/{file-category}/list GET:
     $parser: "json"
     properties:
       method:
@@ -859,6 +859,6 @@ model:
         type: "string"
       path:
         $parser: "path"
-        pattern: "/api/{software}/update/{file-category}/list"
+        pattern: "/api/{application}/update/{file-category}/list"
     type: "object"
 service: {}
