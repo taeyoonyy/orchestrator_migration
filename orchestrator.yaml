@@ -193,7 +193,7 @@ instance:
               $action: "elixir"
               value: |
                 accounts = get("accounts")
-                id = v["body"]["id"]
+                id = v["path"]["segment"]["id"]
                 new_accounts = Enum.reject(accounts, &match?(%{"id" => ^id}, &1))
                 
                 clear(["token", v["headers"]["authorization"]])
@@ -202,7 +202,7 @@ instance:
                 response = %{function("get_response_struct") | "method" => v["method"]}
                 function("respond", response)
             model:
-              $ref: "/api/accounts DELETE"
+              $ref: "/api/accounts/{id} DELETE"
           - do:
               $action: "elixir"
               value: |
@@ -374,8 +374,12 @@ instance:
                 category = v["parameters"]["category"]
                 group = v["parameters"]["group"]
                 groups = get("groups") || []
-                res_body = groups |> Enum.filter(fn x -> x["category"] == category && x["group"] == group end) |> Enum.at(0)
-                res_body = if res_body, do: res_body, else: nil
+                group_info = groups |> Enum.filter(fn x -> x["category"] == category && x["group"] == group end) 
+                res_body = if length(group_info) !== 0 do
+                  group_info |> Enum.at(0) |> Map.get("group_information")
+                else
+                  nil
+                end
                 response = %{function("get_response_struct") | "method" => v["method"], "res_body" => res_body}
                 function("respond", response)
             model:
@@ -706,16 +710,6 @@ instance:
                   File.read!(ui_location)
     use: "http server"
 model:
-  /api/accounts DELETE:
-    $parser: "json"
-    properties:
-      method:
-        const: "DELETE"
-        type: "string"
-      path:
-        const: "/api/accounts"
-        type: "string"
-    type: "object"
   /api/accounts GET:
     $parser: "json"
     properties:
@@ -735,6 +729,16 @@ model:
       path:
         const: "/api/accounts"
         type: "string"
+    type: "object"
+  /api/accounts/{id} DELETE:
+    $parser: "json"
+    properties:
+      method:
+        const: "DELETE"
+        type: "string"
+      path:
+        $parser: "path"
+        pattern: "/api/accounts/{id}"
     type: "object"
   /api/accounts/{id} PUT:
     $parser: "json"
