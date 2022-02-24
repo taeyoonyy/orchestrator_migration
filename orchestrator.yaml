@@ -334,15 +334,14 @@ instance:
                 category = v["body"]["category"]
                 group = v["body"]["group"]
                 entity = v["body"]["entity"]
-                Log.info("YEQWE")
-                Log.info(entity)
-                
                 new_entities = if entity do
                   Enum.reject(entities, &match?(%{"category" => ^category, "group" => ^group, "entity" => ^entity}, &1))
                 else
                   Enum.reject(entities, &match?(%{"category" => ^category, "group" => ^group}, &1))
-                  Log.info("HERE?")
-                  set("groups", Enum.reject(get("groups"), &match?(%{"category" => ^category, "group" => ^group}, &1)))
+                  groups = get("groups")
+                  if groups do
+                    set("groups", Enum.reject(groups, &match?(%{"category" => ^category, "group" => ^group}, &1)))
+                  end
                 end
                 Log.info(new_entities)
                 set("entities", new_entities)
