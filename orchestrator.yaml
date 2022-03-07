@@ -314,6 +314,7 @@ instance:
           - do:
               $action: "elixir"
               value: |
+                if get("entities") === :ok, do: set("entities", [])
                 entities = (get("entities") || []) |> Enum.map(fn x -> Map.delete(x, "password") end)
                 response = %{ function("get_response_struct") | "method" => v["method"], "res_body" => entities}
                 function("respond", response)
