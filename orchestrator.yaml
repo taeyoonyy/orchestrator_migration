@@ -421,7 +421,7 @@ instance:
                   "cpu-average" -> :INTERACTOR_CPU_AVERAGE
                   "cpu-core" -> :INTERACTOR_CPU_CORE
                   "process" -> :INTERACTOR_PROCESS
-                  "resocures" -> :INTERACTOR_RESOURCE
+                  "resources" -> :INTERACTOR_RESOURCE
                 end
                 
                 path = function("get_api_server_path", target)
